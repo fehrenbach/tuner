@@ -167,7 +167,7 @@ int phase(signed char *data) {
     if (differences[i] < min) {
       min = differences[i];
       min_i = i;
-      printf("New min with %i at %i (freq: %f)\n", min, min_i, freq(min_i));
+      //      printf("New min with %i at %i (freq: %f)\n", min, min_i, freq(min_i));
     }
   }
   return min_i;
@@ -177,7 +177,12 @@ int main() {
   /* printf("Sine phase: %i freq: %f\n", phase(sine), freq(phase(sine))); */
   /* printf("Voice phase: %i freq: %f\n", phase(voice), freq(phase(voice))); */
   /* printf("Voice2 phase: %i freq: %f\n", phase(voice2), freq(phase(voice2))); */
-  printf("%i", error_squared(2, -3));
-  printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
-  printf("%f", freq(32));
+  //printf("%i", error_squared(2, -3));
+  //printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
+  //printf("%f", freq(32));
+  int sum = 0;
+  for (int i = 0; i < 1000; i++) {
+    sum += phase(bass);
+  }
+  printf("%i", sum);
 }
