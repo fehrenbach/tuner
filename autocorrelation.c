@@ -1,10 +1,22 @@
 #include <limits.h>
 #include <stdio.h>
 
-#define WINDOW 1024
 #define SAMPLE_RATE 32768
 
-signed char bass[2048] =
+// about 31 Hz (C1) (at 32k)
+#define PHASE_MAX 1041
+// about 1760 Hz (A6) (at 32k)
+#define PHASE_MIN 18
+
+#define ERROR_T_MAX 4294967295
+
+#define WINDOW (PHASE_MAX - PHASE_MIN)
+
+typedef   signed char  sample_t;
+typedef unsigned int   error_t;
+typedef unsigned short phase_t;
+
+sample_t bass[2048] =
 {
        7,    6,    6,    7,    6,    7,    7,    6,    6,    7,    6,    5,    6,    6,    5,    4,
        4,    3,    4,    3,    3,    2,    1,    2,    1,    1,    0,    0,   -1,   -1,   -2,   -2,
@@ -136,6 +148,59 @@ signed char bass[2048] =
      -56,  -55,  -55,  -54,  -54,  -53,  -53,  -52,  -52,  -51,  -50,  -50,  -49,  -49,  -48,  -47
 };
 
+typedef struct {
+  phase_t phase;
+  error_t error;
+  phase_t iteration;
+} continuation;
+
+continuation heap[WINDOW+1];
+
+/* Initialise the heap structure.
+ * NOTE: Could inline first error calculation iteration, then restore heap property */
+void heap_init() {
+  for (int i = 0; i+PHASE_MIN < PHASE_MAX; i++) {
+    heap[i].phase = i+PHASE_MIN;
+    heap[i].error = 0;
+    heap[i].iteration = 0;
+  }
+}
+
+int heap_in_bounds(phase_t index) {
+  return index > 0 && index < WINDOW;
+}
+
+void heap_swap(phase_t a, phase_t b) {
+  continuation tmp = heap[a];
+  heap[a] = heap[b];
+  heap[b] = tmp;
+}
+
+phase_t heap_left(phase_t i) {
+  return i << 1;
+}
+
+phase_t heap_right(phase_t i) {
+  return (i << 1)+1;
+}
+
+void heap_heapify(phase_t i) {
+  phase_t l = heap_left(i);
+  phase_t r = heap_right(i);
+  phase_t smallest;
+  if (heap_in_bounds(l) && heap[l].error < heap[i].error) {
+    smallest = l;
+  } else {
+    smallest = i;
+  }
+  if (heap_in_bounds(r) && heap[r].error < heap[smallest].error) {
+    smallest = r;
+  }
+  if (smallest != i) {
+    heap_swap(i, smallest);
+    heap_heapify(smallest);
+  }
+}
 
 float freq(int phase) {
   return 1.0/(phase * (1.0 / SAMPLE_RATE));
@@ -145,6 +210,23 @@ unsigned int error_squared(signed char a, signed char b) {
   return (unsigned int) ((signed int) a - (signed int) b) * ((signed int) a - (signed int) b);
 }
 
+void print_heap_elem(int i) {
+  printf("Phase: %i\tError: %i\tIteration: %i\n", heap[i].phase, heap[i].error, heap[i].iteration);
+}
+
+phase_t phase(sample_t *data) {
+  heap_init();
+  while (heap[1].iteration < WINDOW) {
+    /* one step in window */
+    heap[1].error += error_squared(data[heap[1].iteration], data[heap[1].iteration + heap[1].phase]);
+    heap[1].iteration++;
+    /* resort heap */
+    heap_heapify(1);
+  }
+  return heap[1].phase;
+}
+
+/*
 unsigned int window_error(signed char *data, int offset) {
   unsigned int sum = 0;
   for (int i = 0; i < WINDOW; i++) {
@@ -172,12 +254,16 @@ int phase(signed char *data) {
   }
   return min_i;
 }
+*/
 
 int main() {
   /* printf("Sine phase: %i freq: %f\n", phase(sine), freq(phase(sine))); */
   /* printf("Voice phase: %i freq: %f\n", phase(voice), freq(phase(voice))); */
   /* printf("Voice2 phase: %i freq: %f\n", phase(voice2), freq(phase(voice2))); */
-  printf("%i", error_squared(2, -3));
-  printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
-  printf("%f", freq(32));
+  int phase_sum = 0;
+  for (int i = 0; i < 1000; i++) {
+    phase_sum += phase(bass);
+  }
+  printf("%i", phase_sum);
+  //  printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
 }
