@@ -226,44 +226,11 @@ phase_t phase(sample_t *data) {
   return heap[1].phase;
 }
 
-/*
-unsigned int window_error(signed char *data, int offset) {
-  unsigned int sum = 0;
-  for (int i = 0; i < WINDOW; i++) {
-    sum += error_squared(data[i], data[i+offset]);
-  }
-  return sum;
-}
-
-unsigned int differences[WINDOW];
-
-int phase(signed char *data) {
-  // NOTE: for i = 0 difference should always be 0, so start with 1 in real code 
-  for (int i = 0; i < WINDOW; i++) {
-    differences[i] = window_error(data, i);
-  }
-
-  unsigned int min = INT_MAX;
-  int min_i = 0;
-  for (int i = 32; i < WINDOW; i++) {
-    if (differences[i] < min) {
-      min = differences[i];
-      min_i = i;
-      printf("New min with %i at %i (freq: %f)\n", min, min_i, freq(min_i));
-    }
-  }
-  return min_i;
-}
-*/
-
 int main() {
-  /* printf("Sine phase: %i freq: %f\n", phase(sine), freq(phase(sine))); */
-  /* printf("Voice phase: %i freq: %f\n", phase(voice), freq(phase(voice))); */
-  /* printf("Voice2 phase: %i freq: %f\n", phase(voice2), freq(phase(voice2))); */
   int phase_sum = 0;
   for (int i = 0; i < 1000; i++) {
     phase_sum += phase(bass);
   }
   printf("%i", phase_sum);
-  //  printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
+  printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
 }
