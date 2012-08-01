@@ -302,61 +302,6 @@ sample_t voice[2400] =
       -4,   -3,   -4,   -3,   -4,   -3,   -3,   -4,   -3,   -4,   -3,   -4,   -3,   -4,   -3,   -4
 };
 
-
-typedef struct {
-  phase_t phase;
-  error_t error;
-  phase_t iteration;
-} continuation;
-
-continuation heap[WINDOW+1];
-
-/* Initialise the heap structure.
- * NOTE: Could inline first error calculation iteration, then restore heap property */
-void heap_init() {
-  for (int i = 0; i+PHASE_MIN < PHASE_MAX; i++) {
-    heap[i].phase = i+PHASE_MIN;
-    heap[i].error = 0;
-    heap[i].iteration = 0;
-  }
-}
-
-int heap_in_bounds(phase_t index) {
-  return index > 0 && index < WINDOW;
-}
-
-void heap_swap(phase_t a, phase_t b) {
-  continuation tmp = heap[a];
-  heap[a] = heap[b];
-  heap[b] = tmp;
-}
-
-phase_t heap_left(phase_t i) {
-  return i << 1;
-}
-
-phase_t heap_right(phase_t i) {
-  return (i << 1)+1;
-}
-
-void heap_heapify(phase_t i) {
-  phase_t l = heap_left(i);
-  phase_t r = heap_right(i);
-  phase_t smallest;
-  if (heap_in_bounds(l) && heap[l].error < heap[i].error) {
-    smallest = l;
-  } else {
-    smallest = i;
-  }
-  if (heap_in_bounds(r) && heap[r].error < heap[smallest].error) {
-    smallest = r;
-  }
-  if (smallest != i) {
-    heap_swap(i, smallest);
-    heap_heapify(smallest);
-  }
-}
-
 float freq(int phase) {
   return 1.0/(phase * (1.0 / SAMPLE_RATE));
 }
@@ -365,70 +310,25 @@ unsigned int error_squared(signed char a, signed char b) {
   return (unsigned int) ((signed int) a - (signed int) b) * ((signed int) a - (signed int) b);
 }
 
-void print_heap_elem(int i) {
-  printf("Phase: %i\tError: %i\tIteration: %i\n", heap[i].phase, heap[i].error, heap[i].iteration);
+error_t window_error(sample_t *data, phase_t offset, error_t limit) {
+  error_t error = 0;
+  for (int i = 0; i < WINDOW && error < limit; i++) {
+    error += error_squared(data[i], data[i+offset]);
+  }
+  return error;
 }
 
 phase_t phase(sample_t *data) {
-  heap_init();
-  while (heap[1].iteration < WINDOW) {
-    /* 5 steps in window
-       This might do unneccessary work if the initial error is large enough
-       but saves heap management overhead in case the error is growing very evenly accross offsets */ 
-    /* TODO:
-       - Find a reasonable value for "unrolling" accross samples (loudness, noise, frequency)
-       - Be careful not to leave WINDOW (should be a divisor or needs extra checking (duff's device anyone?)
-    */
-    /*
-    heap[1].error += error_squared(data[heap[1].iteration], data[heap[1].iteration + heap[1].phase]);
-    heap[1].error += error_squared(data[heap[1].iteration+1], data[heap[1].iteration + heap[1].phase+1]);
-    heap[1].error += error_squared(data[heap[1].iteration+2], data[heap[1].iteration + heap[1].phase+2]);
-    heap[1].error += error_squared(data[heap[1].iteration+3], data[heap[1].iteration + heap[1].phase+3]);
-    heap[1].error += error_squared(data[heap[1].iteration+4], data[heap[1].iteration + heap[1].phase+4]);
-    heap[1].iteration += 5;
-    */
-
-    /* 25 steps in window */
-    /* NOTE: same as above
-    /*
-    heap[1].error += error_squared(data[heap[1].iteration], data[heap[1].iteration + heap[1].phase]);
-    heap[1].error += error_squared(data[heap[1].iteration+1], data[heap[1].iteration + heap[1].phase+1]);
-    heap[1].error += error_squared(data[heap[1].iteration+2], data[heap[1].iteration + heap[1].phase+2]);
-    heap[1].error += error_squared(data[heap[1].iteration+3], data[heap[1].iteration + heap[1].phase+3]);
-    heap[1].error += error_squared(data[heap[1].iteration+4], data[heap[1].iteration + heap[1].phase+4]);
-    heap[1].error += error_squared(data[heap[1].iteration+5], data[heap[1].iteration + heap[1].phase+5]);
-    heap[1].error += error_squared(data[heap[1].iteration+6], data[heap[1].iteration + heap[1].phase+6]);
-    heap[1].error += error_squared(data[heap[1].iteration+7], data[heap[1].iteration + heap[1].phase+7]);
-    heap[1].error += error_squared(data[heap[1].iteration+8], data[heap[1].iteration + heap[1].phase+8]);
-    heap[1].error += error_squared(data[heap[1].iteration+9], data[heap[1].iteration + heap[1].phase+9]);
-    heap[1].error += error_squared(data[heap[1].iteration+10], data[heap[1].iteration + heap[1].phase+10]);
-    heap[1].error += error_squared(data[heap[1].iteration+11], data[heap[1].iteration + heap[1].phase+11]);
-    heap[1].error += error_squared(data[heap[1].iteration+12], data[heap[1].iteration + heap[1].phase+12]);
-    heap[1].error += error_squared(data[heap[1].iteration+13], data[heap[1].iteration + heap[1].phase+13]);
-    heap[1].error += error_squared(data[heap[1].iteration+14], data[heap[1].iteration + heap[1].phase+14]);
-    heap[1].error += error_squared(data[heap[1].iteration+15], data[heap[1].iteration + heap[1].phase+15]);
-    heap[1].error += error_squared(data[heap[1].iteration+16], data[heap[1].iteration + heap[1].phase+16]);
-    heap[1].error += error_squared(data[heap[1].iteration+17], data[heap[1].iteration + heap[1].phase+17]);
-    heap[1].error += error_squared(data[heap[1].iteration+18], data[heap[1].iteration + heap[1].phase+18]);
-    heap[1].error += error_squared(data[heap[1].iteration+19], data[heap[1].iteration + heap[1].phase+19]);
-    heap[1].error += error_squared(data[heap[1].iteration+20], data[heap[1].iteration + heap[1].phase+20]);
-    heap[1].error += error_squared(data[heap[1].iteration+21], data[heap[1].iteration + heap[1].phase+21]);
-    heap[1].error += error_squared(data[heap[1].iteration+22], data[heap[1].iteration + heap[1].phase+22]);
-    heap[1].error += error_squared(data[heap[1].iteration+23], data[heap[1].iteration + heap[1].phase+23]);
-    heap[1].error += error_squared(data[heap[1].iteration+24], data[heap[1].iteration + heap[1].phase+24]);
-    heap[1].iteration += 25;
-    */
-
-    /* one step in window */
-    heap[1].error += error_squared(data[heap[1].iteration], data[heap[1].iteration + heap[1].phase]);
-    heap[1].iteration += 1;
-    /* resort heap */
-    heap_heapify(1);
+  error_t min_error = window_error(data, PHASE_MIN, ERROR_T_MAX);
+  phase_t min_index = 0;
+  for (int i = PHASE_MIN+1; i < PHASE_MAX; i++) {
+    error_t current = window_error(data, i, min_error);
+    if (current < min_error) {
+      min_error = current;
+      min_index = i;
+    }
   }
-  //  for (int i = 1; i < WINDOW; i++) {
-  //    printf("%i\n", heap[i].iteration);
-  //  }
-  return heap[1].phase;
+  return min_index;
 }
 
 int main() {
@@ -436,7 +336,7 @@ int main() {
   for (int i = 0; i < 1000; i++) {
     phase_sum += phase(bass);
   }
-  //printf("%i", phase_sum);
+  printf("%i", phase_sum);
   
   //  printf("\n");
   //  printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
