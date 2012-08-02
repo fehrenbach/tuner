@@ -1,3 +1,12 @@
+TODO
+====
+Averaging code needs rewrite. It should only search in close proximity to the
+first run's result to avoid finding different octaves which screw up the
+average. Alternatively, we could try to figure out how to extract information
+from "wrong" octaves. If we find 441 and in a second run 220, the actual
+frequency is probably 220. But if we find 50 and 70 something is very wrong.
+
+
 ARM Cortex M3
 =============
 
