@@ -312,6 +312,10 @@ float freq(int phase) {
   return 1.0/(phase * (1.0 / SAMPLE_RATE));
 }
 
+float freq_f(float phase) {
+  return 1/(phase / SAMPLE_RATE);
+}
+
 unsigned int error_squared(signed char a, signed char b) {
   return (unsigned int) ((signed int) a - (signed int) b) * ((signed int) a - (signed int) b);
 }
@@ -349,9 +353,9 @@ int main() {
   printf("%i", phase_sum);
   */
   //  printf("\n");
-  //  printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
-  //  printf("Voice phase: %i freq: %f\n", phase(voice), freq(phase(voice)));
-  phase(voice);
+  printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
+  printf("Voice phase: %i freq: %f\n", phase(voice), freq(phase(voice)));
+  //phase(bass);
   #ifdef PERF_COUNT
   printf("Window error loops: %i\n", w_e_count);
   #endif
