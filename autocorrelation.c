@@ -1,6 +1,8 @@
 #include <limits.h>
 #include <stdio.h>
 
+#define PERF_COUNT 1
+
 #define SAMPLE_RATE 32768
 
 // about 31 Hz (C1) (at 32k)
@@ -302,6 +304,10 @@ sample_t voice[2400] =
       -4,   -3,   -4,   -3,   -4,   -3,   -3,   -4,   -3,   -4,   -3,   -4,   -3,   -4,   -3,   -4
 };
 
+#ifdef PERF_COUNT
+int w_e_count = 0;
+#endif
+
 float freq(int phase) {
   return 1.0/(phase * (1.0 / SAMPLE_RATE));
 }
@@ -313,6 +319,9 @@ unsigned int error_squared(signed char a, signed char b) {
 error_t window_error(sample_t *data, phase_t offset, error_t limit) {
   error_t error = 0;
   for (int i = 0; i < WINDOW && error < limit; i++) {
+    #ifdef PERF_COUNT
+    w_e_count++;
+    #endif
     error += error_squared(data[i], data[i+offset]);
   }
   return error;
@@ -332,14 +341,18 @@ phase_t phase(sample_t *data) {
 }
 
 int main() {
+  /*
   int phase_sum = 0;
   for (int i = 0; i < 1000; i++) {
     phase_sum += phase(bass);
   }
   printf("%i", phase_sum);
-  
+  */
   //  printf("\n");
   //  printf("Bass phase: %i freq: %f\n", phase(bass), freq(phase(bass)));
   //  printf("Voice phase: %i freq: %f\n", phase(voice), freq(phase(voice)));
-  //  phase(voice);
+  phase(voice);
+  #ifdef PERF_COUNT
+  printf("Window error loops: %i\n", w_e_count);
+  #endif
 }
