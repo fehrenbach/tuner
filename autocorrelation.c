@@ -1,6 +1,5 @@
 #include <limits.h>
 #include <stdio.h>
-#include <arm_neon.h>
 
 #define PERF_COUNT 1
 
@@ -704,9 +703,7 @@ float freq_f(float phase) {
 
 unsigned int sample_error(signed char a, signed char b) {
   //  return (unsigned int) ((signed int) a - (signed int) b) * ((signed int) a - (signed int) b);
-  //  return (unsigned int) (a > b ? a - b : b - a);
-  //  return (unsigned int)
-  return vabd_u8((uint8x8_t) a, (uint8x8_t) b);
+  return (unsigned int) (a > b ? a - b : b - a);
 }
 
 error_t window_error(sample_t *data, phase_t offset, error_t limit) {
