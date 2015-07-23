@@ -4,3 +4,6 @@ name = "tuner"
 version = "0.0.1"
 authors = [ "Stefan Fehrenbach <stefan.fehrenbach@gmail.com>" ]
 
+[dependencies]
+
+alsa = "0.0.5"
