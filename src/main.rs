@@ -4,18 +4,36 @@ use std::ffi::CString;
 use alsa::Direction;
 use alsa::pcm::{PCM, HwParams, Format, Access, State};
 
+struct Config {
+    card: CString,
+    sample_rate: u32
+}
+
+fn default_config() -> Config {
+    Config {
+        card: CString::new("default").unwrap(),
+        sample_rate: 44100
+    }
+}
+
+// Frequency range:
+// Cello & Guitar open strings
+// + some room downwards for drop tunings (1 tone?)
+// + some room both directions for being off (semitone?)
+
 fn main() {
     // make_noise();
+    let config = default_config();
 
     const n :usize = 100;
     let mut buf = [0i16; n*1024];
 
     {
-        let pcm = PCM::open(&*CString::new("default").unwrap(), Direction::Capture, false).unwrap();
+        let pcm = PCM::open(&*config.card, Direction::Capture, false).unwrap();
 
         let hwp = HwParams::any(&pcm).unwrap();
         hwp.set_channels(1).unwrap();
-        hwp.set_rate(44100, 0).unwrap();
+        hwp.set_rate(config.sample_rate, 0).unwrap();
         hwp.set_format(Format::s16()).unwrap();
         hwp.set_access(Access::RWInterleaved).unwrap();
         pcm.hw_params(&hwp).unwrap();
@@ -29,12 +47,12 @@ fn main() {
 
     println!("playback!");
 
-    let pcm = PCM::open(&*CString::new("default").unwrap(), Direction::Playback, false).unwrap();
+    let pcm = PCM::open(&*config.card, Direction::Playback, false).unwrap();
 
     // Set hardware parameters: 44100 Hz / Mono / 16 bit
     let hwp = HwParams::any(&pcm).unwrap();
     hwp.set_channels(1).unwrap();
-    hwp.set_rate(44100, 0).unwrap();
+    hwp.set_rate(config.sample_rate, 0).unwrap();
     hwp.set_format(Format::s16()).unwrap();
     hwp.set_access(Access::RWInterleaved).unwrap();
     pcm.hw_params(&hwp).unwrap();
