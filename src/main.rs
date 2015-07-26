@@ -4,16 +4,53 @@ use std::ffi::CString;
 use alsa::Direction;
 use alsa::pcm::{PCM, HwParams, Format, Access, State};
 
+const SAMPLE_RATE: u32 = 44100;
+// Smallest phase - phase of highest frequency
+// Choose 55Hz - 110Hz for now, so:
+const PHASE_MIN: usize = 401; // 44100/110
+const PHASE_MAX: usize = 802; // 44100/55
+
+const SAMPLES: usize = PHASE_MAX*2;
+
+type Sample = i16;
+
 struct Config {
-    card: CString,
-    sample_rate: u32
+    card: CString
 }
 
 fn default_config() -> Config {
     Config {
-        card: CString::new("default").unwrap(),
-        sample_rate: 44100
+        card: CString::new("default").unwrap()
     }
+}
+
+fn error_squared(a: Sample, b: Sample) -> u64 {
+    let d = (a as i32 - b as i32) as i64;
+    return (d*d) as u64;
+}
+
+fn window_error(data: &[Sample], offset: usize, error_limit: u64) -> u64 {
+    let mut error = 0;
+    for i in 0..PHASE_MAX {
+        error += error_squared(data[i], data[i+offset]);
+        if error >= error_limit {
+            break;
+        }
+    }
+    return error;
+}
+
+fn phase(data: &[Sample]) -> usize {
+    let mut min_error = window_error(data, PHASE_MIN, u64::max_value());
+    let mut min_phase = 0;
+    for phase in PHASE_MIN + 1 .. PHASE_MAX {
+        let error = window_error(data, phase, min_error);
+        if error < min_error {
+            min_error = error;
+            min_phase = phase;
+        }
+    }
+    return min_phase;
 }
 
 // Frequency range:
@@ -21,10 +58,32 @@ fn default_config() -> Config {
 // + some room downwards for drop tunings (1 tone?)
 // + some room both directions for being off (semitone?)
 
+// Actually, autocorrelation is terrible with octaves anyways, so why not
+// just go over one octave? Preferably the lowest, I think.
+
 fn main() {
     // make_noise();
     let config = default_config();
 
+    {
+        let pcm = PCM::open(&*config.card, Direction::Capture, false).unwrap();
+
+        let hwp = HwParams::any(&pcm).unwrap();
+        hwp.set_channels(1).unwrap();
+        hwp.set_rate(SAMPLE_RATE, 0).unwrap();
+        hwp.set_format(Format::s16()).unwrap();
+        hwp.set_access(Access::RWInterleaved).unwrap();
+        pcm.hw_params(&hwp).unwrap();
+        let io = pcm.io_i16().unwrap();
+
+        pcm.prepare().unwrap();
+        loop {
+            let mut data = [0i16; SAMPLES];
+            assert_eq!(io.readi(&mut data).unwrap(), SAMPLES);
+            let phase = phase(&data);
+            println!("phase: {}, freq: {}", phase, SAMPLE_RATE as f64 / phase as f64);
+        }
+    }
     const n :usize = 100;
     let mut buf = [0i16; n*1024];
 
@@ -33,7 +92,7 @@ fn main() {
 
         let hwp = HwParams::any(&pcm).unwrap();
         hwp.set_channels(1).unwrap();
-        hwp.set_rate(config.sample_rate, 0).unwrap();
+        hwp.set_rate(SAMPLE_RATE, 0).unwrap();
         hwp.set_format(Format::s16()).unwrap();
         hwp.set_access(Access::RWInterleaved).unwrap();
         pcm.hw_params(&hwp).unwrap();
@@ -52,7 +111,7 @@ fn main() {
     // Set hardware parameters: 44100 Hz / Mono / 16 bit
     let hwp = HwParams::any(&pcm).unwrap();
     hwp.set_channels(1).unwrap();
-    hwp.set_rate(config.sample_rate, 0).unwrap();
+    hwp.set_rate(SAMPLE_RATE, 0).unwrap();
     hwp.set_format(Format::s16()).unwrap();
     hwp.set_access(Access::RWInterleaved).unwrap();
     pcm.hw_params(&hwp).unwrap();
