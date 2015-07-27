@@ -70,10 +70,10 @@ fn parse_alteration(c: char) -> Option<isize> {
 fn parse_pitch(string: String) -> Pitch {
     let note = parse_note(string.chars().nth(0).unwrap()).unwrap();
     match string.chars().nth(1) {
-        None => return note * 12,
+        None => return note,
         Some(c) => match (parse_alteration(c), parse_octave(c)) {
             (Some(alt), None) => match string.chars().nth(2) {
-                None => return note + 4*12 + alt,
+                None => return note + alt,
                 Some(c) => return note + parse_octave(c).unwrap()*12 + alt
             },
             (None, Some(oct)) => return note + oct*12,
@@ -87,6 +87,13 @@ fn pprint_pitch(pitch: Pitch) -> String {
     let notes = vec!["A", "A♯", "B", "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯"];
     let octaves = vec!["0", "1", "2", "3", "", "5", "6", "7", "8"];
     notes[pitch % 12].to_string() + octaves[pitch / 12]
+}
+
+#[test]
+fn parse_and_pprint_pitch() {
+    for pitch in -48..59 {
+        assert_eq!(pitch, parse_pitch(pprint_pitch(pitch)));
+    }
 }
 
 fn error_squared(a: Sample, b: Sample) -> u64 {
@@ -127,8 +134,6 @@ fn phase(data: &[Sample]) -> usize {
 // just go over one octave? Preferably the lowest, I think.
 
 fn main() {
-    println!("{}", pprint_pitch(parse_pitch("G#8".to_string())));
-    return;
     // make_noise();
     let config = default_config();
 
