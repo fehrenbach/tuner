@@ -24,6 +24,71 @@ fn default_config() -> Config {
     }
 }
 
+/// Pitch is the number of half steps from A4.
+type Pitch = isize;
+
+fn parse_note(c: char) -> Option<isize> {
+    match c {
+        'A' => Some(0),
+        'B' => Some(2),
+        'C' => Some(3),
+        'D' => Some(5),
+        'E' => Some(7),
+        'F' => Some(8),
+        'G' => Some(10),
+        _   => None
+    }
+}
+
+fn parse_octave(c: char) -> Option<isize> {
+    match c {
+        '0' => Some(-4),
+        '1' => Some(-3),
+        '2' => Some(-2),
+        '3' => Some(-1),
+        '4' => Some(0),
+        '5' => Some(1),
+        '6' => Some(2),
+        '7' => Some(3),
+        '8' => Some(4),
+        _   => None
+    }
+}
+
+fn parse_alteration(c: char) -> Option<isize> {
+    match c {
+        // TODO there are multiple unicode symbols for each of these... :/
+        '♯' => Some(1),
+        '#' => Some(1),
+        '♮' => Some(0),
+        'b' => Some(-1),
+        '♭' => Some(-1),
+        _ => None
+    }
+}
+
+fn parse_pitch(string: String) -> Pitch {
+    let note = parse_note(string.chars().nth(0).unwrap()).unwrap();
+    match string.chars().nth(1) {
+        None => return note * 12,
+        Some(c) => match (parse_alteration(c), parse_octave(c)) {
+            (Some(alt), None) => match string.chars().nth(2) {
+                None => return note + 4*12 + alt,
+                Some(c) => return note + parse_octave(c).unwrap()*12 + alt
+            },
+            (None, Some(oct)) => return note + oct*12,
+            _ => unreachable!()
+        }
+    }
+}
+
+fn pprint_pitch(pitch: Pitch) -> String {
+    let pitch = (48 + pitch) as usize;
+    let notes = vec!["A", "A♯", "B", "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯"];
+    let octaves = vec!["0", "1", "2", "3", "", "5", "6", "7", "8"];
+    notes[pitch % 12].to_string() + octaves[pitch / 12]
+}
+
 fn error_squared(a: Sample, b: Sample) -> u64 {
     let d = (a as i32 - b as i32) as i64;
     return (d*d) as u64;
@@ -62,6 +127,8 @@ fn phase(data: &[Sample]) -> usize {
 // just go over one octave? Preferably the lowest, I think.
 
 fn main() {
+    println!("{}", pprint_pitch(parse_pitch("G#8".to_string())));
+    return;
     // make_noise();
     let config = default_config();
 
