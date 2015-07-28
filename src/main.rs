@@ -15,12 +15,21 @@ const SAMPLES: usize = PHASE_MAX*2;
 type Sample = i16;
 
 struct Config {
-    card: CString
+    card: CString,
+    notes: Box<Vec<String>>
 }
 
 fn default_config() -> Config {
     Config {
-        card: CString::new("default").unwrap()
+        card: CString::new("default").unwrap(),
+        // guitar standard
+        notes: Box::new(vec!(
+            "E2".to_string(),
+            "A2".to_string(),
+            "D3".to_string(),
+            "G3".to_string(),
+            "B3".to_string(),
+            "E4".to_string()))
     }
 }
 
@@ -67,16 +76,16 @@ fn parse_alteration(c: char) -> Option<isize> {
     }
 }
 
-fn parse_pitch(string: String) -> Pitch {
+fn parse_pitch(string: &String) -> Pitch {
     let note = parse_note(string.chars().nth(0).unwrap()).unwrap();
     match string.chars().nth(1) {
-        None => return note,
+        None => note,
         Some(c) => match (parse_alteration(c), parse_octave(c)) {
             (Some(alt), None) => match string.chars().nth(2) {
-                None => return note + alt,
-                Some(c) => return note + parse_octave(c).unwrap()*12 + alt
+                None => note + alt,
+                Some(c) => note + parse_octave(c).unwrap()*12 + alt
             },
-            (None, Some(oct)) => return note + oct*12,
+            (None, Some(oct)) => note + oct*12,
             _ => unreachable!()
         }
     }
@@ -92,13 +101,43 @@ fn pprint_pitch(pitch: Pitch) -> String {
 #[test]
 fn parse_and_pprint_pitch() {
     for pitch in -48..59 {
-        assert_eq!(pitch, parse_pitch(pprint_pitch(pitch)));
+        assert_eq!(pitch, parse_pitch(&pprint_pitch(pitch)));
     }
+}
+
+// TODO This is wrong, we want the output it phases, not pitches
+fn calculate_phase_boundaries(notes: Box<Vec<String>>) -> Vec<Pitch> {
+    let mut notes: Vec<Pitch> = (*notes).clone().iter().map(parse_pitch).collect();
+    notes.sort();
+    let b_len = notes.len() * 2 + 1;
+    let mut boundaries: Vec<Pitch> = Vec::with_capacity(b_len);
+    // Should probably use Vec::from_elem(b_len, 0) but that is not in stable yet
+    unsafe { boundaries.set_len(b_len); }
+    // TODO to phase
+    boundaries[0] = notes[0] - 3;
+    // TODO to phase
+    boundaries[b_len-1] = notes[notes.len()-1] + 3;
+    for (note_index, note) in notes.iter().enumerate() {
+        // TODO to phase
+        boundaries[note_index*2 + 1] = *note;
+    }
+    for note_index in 0..notes.len()-1 {
+        boundaries[note_index*2 + 2] =
+            (boundaries[note_index*2 + 1] + boundaries[note_index*2 + 3]) / 2;
+    }
+    boundaries
+}
+
+#[test]
+fn guitar_phase_boundaries() {
+    let boundaries = calculate_phase_boundaries(default_config().notes);
+    // TODO
+    // assert_eq!(boundaries, vec!(1));
 }
 
 fn error_squared(a: Sample, b: Sample) -> u64 {
     let d = (a as i32 - b as i32) as i64;
-    return (d*d) as u64;
+    (d*d) as u64
 }
 
 fn window_error(data: &[Sample], offset: usize, error_limit: u64) -> u64 {
@@ -109,7 +148,7 @@ fn window_error(data: &[Sample], offset: usize, error_limit: u64) -> u64 {
             break;
         }
     }
-    return error;
+    error
 }
 
 fn phase(data: &[Sample]) -> usize {
@@ -122,7 +161,7 @@ fn phase(data: &[Sample]) -> usize {
             min_phase = phase;
         }
     }
-    return min_phase;
+    min_phase
 }
 
 // Frequency range:
