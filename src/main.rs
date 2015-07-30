@@ -106,8 +106,8 @@ fn parse_and_pprint_pitch() {
 }
 
 // TODO This is wrong, we want the output it phases, not pitches
-fn calculate_phase_boundaries(notes: Box<Vec<String>>) -> Vec<Pitch> {
-    let mut notes: Vec<Pitch> = (*notes).clone().iter().map(parse_pitch).collect();
+fn calculate_phase_boundaries(config: &Config) -> Vec<Pitch> {
+    let mut notes: Vec<Pitch> = config.notes.iter().map(parse_pitch).collect();
     notes.sort();
     let b_len = notes.len() * 2 + 1;
     let mut boundaries: Vec<Pitch> = Vec::with_capacity(b_len);
@@ -130,7 +130,7 @@ fn calculate_phase_boundaries(notes: Box<Vec<String>>) -> Vec<Pitch> {
 
 #[test]
 fn guitar_phase_boundaries() {
-    let boundaries = calculate_phase_boundaries(default_config().notes);
+    let boundaries = calculate_phase_boundaries(&default_config());
     // TODO
     // assert_eq!(boundaries, vec!(1));
 }
