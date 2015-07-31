@@ -15,12 +15,21 @@ const SAMPLES: usize = PHASE_MAX*2;
 type Sample = i16;
 
 struct Config {
+    base_frequency: f64,
     card: CString,
-    notes: Box<Vec<String>>
+    notes: Box<Vec<String>>,
+    sample_rate: u32
+}
+
+type Phase = usize;
+
+fn phase(config: &Config, pitch: Pitch) -> Phase {
+    (config.sample_rate as f64 / config.base_frequency / (2.0_f64).powf(1.0 / 12.0).powi(pitch as i32)).round() as Phase
 }
 
 fn default_config() -> Config {
     Config {
+        base_frequency: 440.0,
         card: CString::new("default").unwrap(),
         // guitar standard
         notes: Box::new(vec!(
@@ -29,9 +38,11 @@ fn default_config() -> Config {
             "D3".to_string(),
             "G3".to_string(),
             "B3".to_string(),
-            "E4".to_string()))
+            "E4".to_string())),
+        sample_rate: 44100
     }
 }
+
 
 /// Pitch is the number of half steps from A4.
 type Pitch = isize;
@@ -105,34 +116,23 @@ fn parse_and_pprint_pitch() {
     }
 }
 
-// TODO This is wrong, we want the output it phases, not pitches
-fn calculate_phase_boundaries(config: &Config) -> Vec<Pitch> {
+fn calculate_phase_boundaries(config: &Config) -> Vec<Phase> {
     let mut notes: Vec<Pitch> = config.notes.iter().map(parse_pitch).collect();
     notes.sort();
     let b_len = notes.len() * 2 + 1;
-    let mut boundaries: Vec<Pitch> = Vec::with_capacity(b_len);
+    let mut boundaries: Vec<Phase> = Vec::with_capacity(b_len);
     // Should probably use Vec::from_elem(b_len, 0) but that is not in stable yet
     unsafe { boundaries.set_len(b_len); }
-    // TODO to phase
-    boundaries[0] = notes[0] - 3;
-    // TODO to phase
-    boundaries[b_len-1] = notes[notes.len()-1] + 3;
+    boundaries[0] = phase(config, notes[0] - 3);
+    boundaries[b_len-1] = phase(config, notes[notes.len()-1] + 3);
     for (note_index, note) in notes.iter().enumerate() {
-        // TODO to phase
-        boundaries[note_index*2 + 1] = *note;
+        boundaries[note_index*2 + 1] = phase(config, *note);
     }
     for note_index in 0..notes.len()-1 {
         boundaries[note_index*2 + 2] =
             (boundaries[note_index*2 + 1] + boundaries[note_index*2 + 3]) / 2;
     }
     boundaries
-}
-
-#[test]
-fn guitar_phase_boundaries() {
-    let boundaries = calculate_phase_boundaries(&default_config());
-    // TODO
-    // assert_eq!(boundaries, vec!(1));
 }
 
 fn error_squared(a: Sample, b: Sample) -> u64 {
@@ -151,7 +151,7 @@ fn window_error(data: &[Sample], offset: usize, error_limit: u64) -> u64 {
     error
 }
 
-fn phase(data: &[Sample]) -> usize {
+fn autocorrelate(data: &[Sample]) -> usize {
     let mut min_error = window_error(data, PHASE_MIN, u64::max_value());
     let mut min_phase = 0;
     for phase in PHASE_MIN + 1 .. PHASE_MAX {
@@ -191,7 +191,7 @@ fn main() {
         loop {
             let mut data = [0i16; SAMPLES];
             assert_eq!(io.readi(&mut data).unwrap(), SAMPLES);
-            let phase = phase(&data);
+            let phase = autocorrelate(&data);
             println!("phase: {}, freq: {}", phase, SAMPLE_RATE as f64 / phase as f64);
         }
     }
