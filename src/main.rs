@@ -24,7 +24,13 @@ struct Config {
 type Phase = usize;
 
 fn phase(config: &Config, pitch: Pitch) -> Phase {
+    // sample_rate / base_frequency / (2^(1/2))^pitch
     (config.sample_rate as f64 / config.base_frequency / (2.0_f64).powf(1.0 / 12.0).powi(pitch as i32)).round() as Phase
+}
+
+#[test]
+fn phase_a4_default() {
+    assert_eq!(100, phase(&default_config(), 0));
 }
 
 fn default_config() -> Config {
