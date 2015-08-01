@@ -41,7 +41,6 @@ fn default_config() -> Config {
 type Phase = usize;
 
 fn phase(config: &Config, pitch: Pitch) -> Phase {
-    // sample_rate / base_frequency / (2^(1/2))^pitch
     (config.sample_rate as f64 / config.base_frequency / (2.0_f64).powf(1.0 / 12.0).powi(pitch as i32)).round() as Phase
 }
 
@@ -170,7 +169,7 @@ fn window_error(data: &[Sample], offset: usize, error_limit: u64) -> u64 {
 
 fn autocorrelate(data: &[Sample]) -> Phase {
     let mut min_error = window_error(data, PHASE_MIN, u64::max_value());
-    let mut min_phase = 0;
+    let mut min_phase = PHASE_MIN;
     for phase in PHASE_MIN + 1 .. PHASE_MAX {
         let error = window_error(data, phase, min_error);
         if error < min_error {
@@ -211,8 +210,8 @@ fn main() {
             let phase = autocorrelate(&data);
             // VT100 escape magic to clear the current line and reset the cursor
             print!("\x1B[2K\r");
-            print!("phase: {}, freq: {}, pitch: {}, note: {}", phase, SAMPLE_RATE as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
-            std::io::stdout().flush();
+            print!("phase: {}, freq: {:.3}, pitch: {:.3}, note: {}", phase, SAMPLE_RATE as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
+            std::io::stdout().flush().unwrap();
         }
     }
     const n :usize = 100;
