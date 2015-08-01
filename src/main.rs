@@ -129,7 +129,7 @@ fn frequency(config: &Config, phase: f64) -> f64 {
     let f = config.base_frequency;
     let s = config.sample_rate as f64;
     let p = phase;
-    (12_f64 * f64::ln(s / (f * p))) / f64::ln(2_f64)
+    (s / (p * f)).log(2_f64.powf(1.0 / 12.0))
 }
 
 fn calculate_phase_boundaries(config: &Config) -> Vec<Phase> {
