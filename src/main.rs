@@ -3,15 +3,7 @@ extern crate alsa;
 use std::io::Write;
 use std::ffi::CString;
 use alsa::Direction;
-use alsa::pcm::{PCM, HwParams, Format, Access, State};
-
-const SAMPLE_RATE: u32 = 44100;
-// Smallest phase - phase of highest frequency
-// Choose 55Hz - 110Hz for now, so:
-const PHASE_MIN: usize = 401; // 44100/110
-const PHASE_MAX: usize = 802; // 44100/55
-
-const SAMPLES: usize = PHASE_MAX*2;
+use alsa::pcm::{PCM, HwParams, Format, Access};
 
 type Sample = i16;
 
@@ -199,9 +191,9 @@ fn error_squared(a: Sample, b: Sample) -> u64 {
     (d*d) as u64
 }
 
-fn window_error(data: &[Sample], offset: usize, error_limit: u64) -> u64 {
+fn window_error(data: &[Sample], offset: usize, error_limit: u64, phase_max: Phase) -> u64 {
     let mut error = 0;
-    for i in 0..PHASE_MAX {
+    for i in 0..phase_max {
         error += error_squared(data[i], data[i+offset]);
         if error >= error_limit {
             break;
@@ -210,11 +202,11 @@ fn window_error(data: &[Sample], offset: usize, error_limit: u64) -> u64 {
     error
 }
 
-fn autocorrelate(data: &[Sample]) -> Phase {
-    let mut min_error = window_error(data, PHASE_MIN, u64::max_value());
-    let mut min_phase = PHASE_MIN;
-    for phase in PHASE_MIN + 1 .. PHASE_MAX {
-        let error = window_error(data, phase, min_error);
+fn autocorrelate(phase_min: Phase, phase_max: Phase, data: &[Sample]) -> Phase {
+    let mut min_error = window_error(data, phase_min, u64::max_value(), phase_max);
+    let mut min_phase = phase_min;
+    for phase in phase_min+1 .. phase_max {
+        let error = window_error(data, phase, min_error, phase_max);
         if error < min_error {
             min_error = error;
             min_phase = phase;
@@ -226,25 +218,32 @@ fn autocorrelate(data: &[Sample]) -> Phase {
 fn main() {
     let config = default_config();
 
-    let pcm = PCM::open(&*config.card, Direction::Capture, false).unwrap();
+    let phase_min = phase(&config, config.pitches[config.pitches.len() - 1]);
+    let phase_max = phase(&config, config.pitches[0]);
+    let sample_rate = config.sample_rate;
+    let samples = phase_max * 2;
 
+    let mut backing_vector: Vec<Sample> = Vec::with_capacity(samples);
+    // Should probably use Vec::from_elem(samples, 0) but that is not in stable yet
+    unsafe { backing_vector.set_len(samples); }
+    let mut data = &mut backing_vector[..];
+
+    let pcm = PCM::open(&*config.card, Direction::Capture, false).unwrap();
     let hwp = HwParams::any(&pcm).unwrap();
     hwp.set_channels(1).unwrap();
-    hwp.set_rate(SAMPLE_RATE, 0).unwrap();
+    hwp.set_rate(sample_rate, 0).unwrap();
     hwp.set_format(Format::s16()).unwrap();
     hwp.set_access(Access::RWInterleaved).unwrap();
     pcm.hw_params(&hwp).unwrap();
     let io = pcm.io_i16().unwrap();
-
     pcm.prepare().unwrap();
+
     loop {
-        let mut data = [0i16; SAMPLES];
-        assert_eq!(io.readi(&mut data).unwrap(), SAMPLES);
-        let phase = autocorrelate(&data);
+        assert_eq!(io.readi(&mut data).unwrap(), samples);
+        let phase = autocorrelate(phase_min, phase_max, &data);
         // VT100 escape magic to clear the current line and reset the cursor
         print!("\x1B[2K\r");
-        print!("phase: {}, freq: {:.3}, pitch: {:.3}, note: {}", phase, SAMPLE_RATE as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
+        print!("phase: {}, freq: {:.3}, pitch: {:.3}, note: {}", phase, sample_rate as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
         std::io::stdout().flush().unwrap();
     }
 }
-
