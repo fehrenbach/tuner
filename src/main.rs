@@ -243,7 +243,7 @@ fn main() {
         let phase = autocorrelate(phase_min, phase_max, &data);
         // VT100 escape magic to clear the current line and reset the cursor
         print!("\x1B[2K\r");
-        print!("phase: {}, freq: {:.3}, pitch: {:.3}, note: {}", phase, sample_rate as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
+        print!("phase:{:>4}, freq:{:>8.3}, pitch:{:>8.3}, note: {}", phase, sample_rate as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
         std::io::stdout().flush().unwrap();
     }
 }
