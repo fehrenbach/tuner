@@ -1,5 +1,6 @@
 extern crate alsa;
 
+use std::io::Write;
 use std::ffi::CString;
 use alsa::Direction;
 use alsa::pcm::{PCM, HwParams, Format, Access, State};
@@ -208,7 +209,10 @@ fn main() {
             let mut data = [0i16; SAMPLES];
             assert_eq!(io.readi(&mut data).unwrap(), SAMPLES);
             let phase = autocorrelate(&data);
-            println!("phase: {}, freq: {}, pitch: {}, note: {}", phase, SAMPLE_RATE as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
+            // VT100 escape magic to clear the current line and reset the cursor
+            print!("\x1B[2K\r");
+            print!("phase: {}, freq: {}, pitch: {}, note: {}", phase, SAMPLE_RATE as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
+            std::io::stdout().flush();
         }
     }
     const n :usize = 100;
