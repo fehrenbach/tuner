@@ -121,6 +121,17 @@ fn parse_and_pprint_pitch() {
     }
 }
 
+// Phase (as float, if we ever average over phases) to
+// pitch (difference from A4, as float). Round to get
+// the closest note. Note that the sign is important when
+// figuring out whether you're sharp or flat.
+fn frequency(config: &Config, phase: f64) -> f64 {
+    let f = config.base_frequency;
+    let s = config.sample_rate as f64;
+    let p = phase;
+    (12_f64 * f64::ln(s / (f * p))) / f64::ln(2_f64)
+}
+
 fn calculate_phase_boundaries(config: &Config) -> Vec<Phase> {
     let mut notes: Vec<Pitch> = config.notes.iter().map(parse_pitch).collect();
     notes.sort();
@@ -156,7 +167,7 @@ fn window_error(data: &[Sample], offset: usize, error_limit: u64) -> u64 {
     error
 }
 
-fn autocorrelate(data: &[Sample]) -> usize {
+fn autocorrelate(data: &[Sample]) -> Phase {
     let mut min_error = window_error(data, PHASE_MIN, u64::max_value());
     let mut min_phase = 0;
     for phase in PHASE_MIN + 1 .. PHASE_MAX {
@@ -197,7 +208,7 @@ fn main() {
             let mut data = [0i16; SAMPLES];
             assert_eq!(io.readi(&mut data).unwrap(), SAMPLES);
             let phase = autocorrelate(&data);
-            println!("phase: {}, freq: {}", phase, SAMPLE_RATE as f64 / phase as f64);
+            println!("phase: {}, freq: {}, pitch: {}, note: {}", phase, SAMPLE_RATE as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
         }
     }
     const n :usize = 100;
