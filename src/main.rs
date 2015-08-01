@@ -15,11 +15,29 @@ const SAMPLES: usize = PHASE_MAX*2;
 
 type Sample = i16;
 
+/// A Pitch is the number of half steps up from A4.
+type Pitch = isize;
+
 struct Config {
     base_frequency: f64,
     card: CString,
-    notes: Box<Vec<String>>,
+    pitches: Box<[Pitch]>,
     sample_rate: u32
+}
+
+fn parse_pitches(s: &str) -> Box<[Pitch]> {
+    let mut res: Vec<Pitch> = s.split(" ").map(parse_pitch).collect();
+    res.sort();
+    res.into_boxed_slice()
+}
+
+#[test]
+fn parse_pitches_guitar() {
+    let computed = parse_pitches("E2 A2 D3 G3 B3 E4");
+    let expected = [-29, -24, -19, -14, -10, -5];
+    for i in 0..computed.len() {
+        assert_eq!(expected[i], computed[i]);
+    }
 }
 
 fn default_config() -> Config {
@@ -27,13 +45,7 @@ fn default_config() -> Config {
         base_frequency: 440.0,
         card: CString::new("default").unwrap(),
         // guitar standard
-        notes: Box::new(vec!(
-            "E2".to_string(),
-            "A2".to_string(),
-            "D3".to_string(),
-            "G3".to_string(),
-            "B3".to_string(),
-            "E4".to_string())),
+        pitches: parse_pitches("E2 A2 D3 G3 B3 E4"),
         sample_rate: 44100
     }
 }
@@ -49,18 +61,15 @@ fn phase_default_a4() {
     assert_eq!(100, phase(&default_config(), 0));
 }
 
-/// Pitch is the number of half steps up from A4.
-type Pitch = isize;
-
 fn parse_note(c: char) -> Option<isize> {
     match c {
+        'C' => Some(-9),
+        'D' => Some(-7),
+        'E' => Some(-5),
+        'F' => Some(-4),
+        'G' => Some(-2),
         'A' => Some(0),
         'B' => Some(2),
-        'C' => Some(3),
-        'D' => Some(5),
-        'E' => Some(7),
-        'F' => Some(8),
-        'G' => Some(10),
         _   => None
     }
 }
@@ -92,7 +101,7 @@ fn parse_alteration(c: char) -> Option<isize> {
     }
 }
 
-fn parse_pitch(string: &String) -> Pitch {
+fn parse_pitch(string: &str) -> Pitch {
     let note = parse_note(string.chars().nth(0).unwrap()).unwrap();
     match string.chars().nth(1) {
         None => note,
@@ -107,16 +116,48 @@ fn parse_pitch(string: &String) -> Pitch {
     }
 }
 
+#[test]
+fn parse_pitch_tests() {
+    assert_eq!(0, parse_pitch("A"));
+    assert_eq!(0, parse_pitch("A4"));
+    assert_eq!(1, parse_pitch("A#"));
+    assert_eq!(-1, parse_pitch("Ab"));
+    assert_eq!(12, parse_pitch("A5"));
+    assert_eq!(-12, parse_pitch("A3"));
+    assert_eq!(-5, parse_pitch("E4"));
+    assert_eq!(7, parse_pitch("E5"));
+    assert_eq!(-57, parse_pitch("C0"));
+    assert_eq!(-45, parse_pitch("C1"));
+    assert_eq!(-33, parse_pitch("C2"));
+    assert_eq!(-21, parse_pitch("C3"));
+    assert_eq!(-9, parse_pitch("C4"));
+    assert_eq!(3, parse_pitch("C5"));
+    assert_eq!(15, parse_pitch("C6"));
+    assert_eq!(27, parse_pitch("C7"));
+    assert_eq!(39, parse_pitch("C8"));
+}
+
 fn pprint_pitch(pitch: Pitch) -> String {
-    let pitch = (48 + pitch) as usize;
-    let notes = vec!["A", "A♯", "B", "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯"];
+    let pitch = (48 + pitch + 9) as usize;
+    let notes = vec!["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
     let octaves = vec!["0", "1", "2", "3", "", "5", "6", "7", "8"];
     notes[pitch % 12].to_string() + octaves[pitch / 12]
 }
 
 #[test]
+fn pprint_pitch_tests() {
+    assert_eq!("A", pprint_pitch(0));
+    assert_eq!("A♯", pprint_pitch(1));
+    assert_eq!("G♯", pprint_pitch(-1));
+    assert_eq!("C0", pprint_pitch(-57));
+    assert_eq!("C", pprint_pitch(-9));
+    assert_eq!("C5", pprint_pitch(3));
+    assert_eq!("C8", pprint_pitch(39));
+}
+
+#[test]
 fn parse_and_pprint_pitch() {
-    for pitch in -48..59 {
+    for pitch in -57..39 {
         assert_eq!(pitch, parse_pitch(&pprint_pitch(pitch)));
     }
 }
@@ -132,6 +173,7 @@ fn frequency(config: &Config, phase: f64) -> f64 {
     (s / (p * f)).log(2_f64.powf(1.0 / 12.0))
 }
 
+/*
 fn calculate_phase_boundaries(config: &Config) -> Vec<Phase> {
     let mut notes: Vec<Pitch> = config.notes.iter().map(parse_pitch).collect();
     notes.sort();
@@ -150,6 +192,7 @@ fn calculate_phase_boundaries(config: &Config) -> Vec<Phase> {
     }
     boundaries
 }
+*/
 
 fn error_squared(a: Sample, b: Sample) -> u64 {
     let d = (a as i32 - b as i32) as i64;
@@ -204,3 +247,4 @@ fn main() {
         std::io::stdout().flush().unwrap();
     }
 }
+
