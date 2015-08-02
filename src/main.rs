@@ -223,8 +223,8 @@ fn difference<T>(a: T, b: T) -> T
 
 // TODO add a couple of these examples-inside-documentation tests
 // Corner cases: empty slice, larger/smaller than slice extremes, duplicates, ...
-/// Takes a slice and a value of element type and returns the index of the
-/// element closest in value.
+/// Takes a sorted slice and a value of element type and returns the index of
+/// the element closest in value.
 fn closest<T>(x: T, xs: &[T]) -> usize
     where T : Ord + Sub<Output=T> + Copy {
     match xs.binary_search(&x) {
