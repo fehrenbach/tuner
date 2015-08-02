@@ -1,5 +1,6 @@
 extern crate alsa;
 
+use std::ops::Sub;
 use std::io::Write;
 use std::ffi::CString;
 use alsa::Direction;
@@ -215,11 +216,34 @@ fn autocorrelate(phase_min: Phase, phase_max: Phase, data: &[Sample]) -> Phase {
     min_phase
 }
 
+fn difference<T>(a: T, b: T) -> T
+    where T : Ord + Sub<Output=T> {
+    if a > b { a - b } else { b - a }
+}
+
+// TODO add a couple of these examples-inside-documentation tests
+// Corner cases: empty slice, larger/smaller than slice extremes, duplicates, ...
+/// Takes a slice and a value of element type and returns the index of the
+/// element closest in value.
+fn closest<T>(x: T, xs: &[T]) -> usize
+    where T : Ord + Sub<Output=T> + Copy {
+    match xs.binary_search(&x) {
+        Ok(i) => i,
+        Err(0) => 0,
+        Err(i) =>
+            if difference(xs[i], x) < difference(xs[i-1], x) { i } else { i-1 }
+    }
+}
+
 fn main() {
     let config = default_config();
 
-    let phase_min = phase(&config, config.pitches[config.pitches.len() - 1]);
-    let phase_max = phase(&config, config.pitches[0]);
+    let mut phases: Vec<Phase> = (*config.pitches).iter().map(|&p| phase(&config, p)).collect();
+    phases.sort();
+    let phases = phases;
+
+    let phase_min = phases[0];
+    let phase_max = phases[phases.len()-1];
     let sample_rate = config.sample_rate;
     let samples = phase_max * 2;
 
@@ -241,9 +265,10 @@ fn main() {
     loop {
         assert_eq!(io.readi(&mut data).unwrap(), samples);
         let phase = autocorrelate(phase_min, phase_max, &data);
+        let closest_index = closest(phase, &phases);
         // VT100 escape magic to clear the current line and reset the cursor
         print!("\x1B[2K\r");
-        print!("phase:{:>4}, freq:{:>8.3}, pitch:{:>8.3}, note: {}", phase, sample_rate as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize));
+        print!("phase:{:>4}, freq:{:>8.3}, pitch:{:>8.3}, note: {}, string: {}", phase, sample_rate as f64 / phase as f64, frequency(&config, phase as f64), pprint_pitch(frequency(&config, phase as f64).round() as isize), closest_index + 1);
         std::io::stdout().flush().unwrap();
     }
 }
